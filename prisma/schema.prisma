@@ -1,0 +1,57 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String    @id @default(cuid())
+  clerkId    String    @unique
+  email      String?   @unique
+  firstName  String?
+  lastName   String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  riskReports RiskReport[]
+}
+
+model RiskReport {
+  id          String   @id @default(cuid())
+  userId      String
+
+  title       String
+  description String?
+  content     String
+  businessType String
+  riskLevel   String   // low/medium/high
+  analysis    Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Plan {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  price       Int      // in cents, e.g. 1200 = $12
+  planId      String?  // optional, if user is on free tier
+  plan        Plan?    @relation("PlanHierarchy", fields: [planId], references: [id])
+  childPlans  Plan[]   @relation("PlanHierarchy")
+  features    String[] // stores as array
+  createdAt   DateTime @default(now())
+}
+
+
+model Contract {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+}
