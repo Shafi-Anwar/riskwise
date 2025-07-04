@@ -1,47 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
+import prisma from '@/lib/prisma'
+import { auth } from '@clerk/nextjs/server'
+import { summarizeWithOllama } from '@/lib/ollama'
 
 export async function POST(req: NextRequest) {
-  const { title, description, businessType } = await req.json()
-
-  const prompt = `
-  Analyze the following business risk context:
-
-  Business Type: ${businessType}
-  Title: ${title}
-  Description: ${description}
-
-  Give a clear analysis of risk level (low, medium, high), a score from 0 to 100, and list any warning flags.
-
-  Respond in JSON:
-  {
-    "score": number,
-    "riskLevel": "low" | "medium" | "high",
-    "flags": string[]
+  const { userId } =await auth()
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  `
 
-  try {
-    const response = await fetch('http://localhost:11434/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'llama3',
-        prompt,
-        stream: false,
-      }),
-    })
+  const body = await req.json()
+  const { title, description, businessType, riskLevel, analysis } = body
 
-    const data = await response.json()
-    const match = data.response.match(/{[\s\S]*}/)
-    const parsed = match ? JSON.parse(match[0]) : null
-
-    if (!parsed) {
-      return NextResponse.json({ error: 'Invalid AI response' }, { status: 500 })
-    }
-
-    return NextResponse.json(parsed)
-  } catch (error) {
-    console.error('Ollama Error:', error)
-    return NextResponse.json({ error: 'AI failed' }, { status: 500 })
+  if (!title || !businessType || !riskLevel || !analysis) {
+    return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
   }
+
+  // 🧠 Generate summary using Ollama
+  const aiSummary = await summarizeWithOllama({ title, description, analysis })
+
+  const newReport = await prisma.riskReport.create({
+    data: {
+      title,
+      description,
+      riskLevel,
+      businessType,
+      analysis,
+      userId,
+      content: aiSummary, // or provide the appropriate value for 'content'
+    },
+  })
+
+  return NextResponse.json(newReport)
 }

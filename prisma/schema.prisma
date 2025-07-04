@@ -8,9 +8,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  freelancer
+  business
+}
 model User {
   id         String    @id @default(cuid())
   clerkId    String    @unique
+  role      UserRole
   email      String?   @unique
   firstName  String?
   lastName   String?
@@ -29,6 +34,7 @@ model RiskReport {
   businessType String
   riskLevel   String   // low/medium/high
   analysis    Json
+  summary     String?  // AI-generated summary
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

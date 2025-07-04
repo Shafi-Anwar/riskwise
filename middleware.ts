@@ -1,30 +1,28 @@
 // middleware.ts
 
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server"
+import prisma from "@/lib/prisma"
 
 const isPublicRoute = createRouteMatcher([
-  "/",             // Landing page
-  "/sign-in(.*)",  // Custom sign-in route
-  "/sign-up(.*)",  // Custom sign-up route
-  "/api/webhook(.*)", // Optional: public webhook (if needed)
+  "/", "/sign-in(.*)", "/sign-up(.*)", "/api/webhook(.*)", "/onboarding(.*)"
 ])
 
 export default clerkMiddleware(async (auth, req) => {
-  // Protect everything except public routes
+  const { userId } = await auth()
+
   if (!isPublicRoute(req)) {
-    const { userId } = await auth()
     if (!userId) {
-      // If user not signed in, redirect to custom sign-in
       return Response.redirect(new URL("/sign-in", req.url))
+    }
+
+    // Get user role from DB
+    const user = await prisma.user.findUnique({
+      where: { clerkId: userId },
+      select: { role: true },
+    })
+
+    if (!user || !user.role) {
+      return Response.redirect(new URL("/onboarding", req.url))
     }
   }
 })
-
-export const config = {
-  matcher: [
-    // Run on all routes except static files
-    "/((?!_next|.*\\..*).*)",
-    "/",
-    "/api/(.*)",
-  ],
-}
