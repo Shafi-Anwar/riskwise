@@ -1,28 +1,21 @@
-// middleware.ts
-
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server"
-import prisma from "@/lib/prisma"
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 const isPublicRoute = createRouteMatcher([
-  "/", "/sign-in(.*)", "/sign-up(.*)", "/api/webhook(.*)", "/onboarding(.*)"
-])
+  "/",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/api/webhook(.*)",
+]);
 
-export default clerkMiddleware(async (auth, req) => {
-  const { userId } = await auth()
+export default clerkMiddleware(async (authPromise, req) => {
+  const { userId } = await authPromise();
 
-  if (!isPublicRoute(req)) {
-    if (!userId) {
-      return Response.redirect(new URL("/sign-in", req.url))
-    }
+  if (isPublicRoute(req)) return;
 
-    // Get user role from DB
-    const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
-      select: { role: true },
-    })
-
-    if (!user || !user.role) {
-      return Response.redirect(new URL("/onboarding", req.url))
-    }
+  if (!userId) {
+    return Response.redirect(new URL("/sign-in", req.url));
   }
-})
+
+  // ✅ Don't use Prisma here!
+  // You will check role inside a server component/layout/page.
+});
